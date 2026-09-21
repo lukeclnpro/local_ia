@@ -22,7 +22,7 @@ python ia_agent.py
 
 ## 🪟 Windows
 ```powershell
-cd Documents
+cd $HOME/Documents
 git clone https://github.com/lukeclnpro/local_ia.git
 cd local_ia
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
