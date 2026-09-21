@@ -21,10 +21,8 @@ python ia_agent.py
 ---
 
 ## 🪟 Windows
-
-### 1. Cloner le dépôt
-
 ```powershell
+cd Documents
 git clone https://github.com/lukeclnpro/local_ia.git
 cd local_ia
 Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
