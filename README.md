@@ -37,8 +37,3 @@ python -m pip install --upgrade pip
 python ia_agent.py
 
 ```
-
-```
-
-**Note :** j’ai corrigé la commande Windows d’activation en `.venv\Scripts\Activate.ps1` (il manquait le `\` après `.venv` dans ta version).
-```
