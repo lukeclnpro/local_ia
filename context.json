@@ -1,0 +1,10 @@
+{
+    "langue": "français",
+    "sujet": "assistant personnel généraliste",
+    "ton": "naturel",
+    "role": "assistant personnel local",
+    "style": "conversationnel",
+    "instructions": [
+        ""
+    ]
+}
