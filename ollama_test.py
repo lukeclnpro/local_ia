@@ -5,6 +5,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import time
 import urllib.request
 
 
@@ -44,6 +45,49 @@ def print_info(message):
 
 def print_error(message):
     print(f"[ERREUR] {message}")
+
+
+def progress_bar(current, total, prefix="", width=40):
+    """Affiche une barre de progression simple dans le terminal."""
+    if total <= 0:
+        print(f"\\r{prefix}", end="", flush=True)
+        return
+
+    percent = min(100.0, (current / total) * 100)
+    filled = int(width * percent / 100)
+    bar = "#" * filled + "-" * (width - filled)
+    print(
+        f"\\r{prefix} [{bar}] {percent:6.2f}%",
+        end="",
+        flush=True
+    )
+
+    if current >= total:
+        print()
+
+
+def download_with_progress(url, destination):
+    """Télécharge un fichier avec affichage de la progression."""
+    last_update = [0.0]
+
+    def reporthook(block_count, block_size, total_size):
+        downloaded = block_count * block_size
+        now = time.monotonic()
+
+        # Évite de rafraîchir le terminal trop souvent.
+        if now - last_update[0] >= 0.1 or downloaded >= total_size:
+            progress_bar(
+                min(downloaded, total_size) if total_size > 0 else downloaded,
+                total_size,
+                prefix="Téléchargement"
+            )
+            last_update[0] = now
+
+    urllib.request.urlretrieve(
+        url,
+        destination,
+        reporthook=reporthook
+    )
 
 
 # ============================================================
@@ -90,7 +134,6 @@ def find_ollama():
 # ============================================================
 
 def install_windows():
-
     print_info("Installation d'Ollama pour Windows...")
 
     url = "https://ollama.com/download/OllamaSetup.exe"
@@ -101,21 +144,29 @@ def install_windows():
     )
 
     try:
-        print_info("Téléchargement de l'installateur...")
-
-        urllib.request.urlretrieve(
-            url,
-            installer
-        )
-
+        print_info("1/3 - Téléchargement de l'installateur...")
+        download_with_progress(url, installer)
         print_ok(f"Installateur téléchargé : {installer}")
 
-        print_info("Lancement de l'installation...")
-
-        subprocess.run(
+        print_info("2/3 - Lancement de l'installation d'Ollama...")
+        print_info("La fenêtre de l'installateur Windows peut apparaître.")
+        result = subprocess.run(
             [installer],
-            check=True
+            check=False
         )
+
+        if result.returncode != 0:
+            print_error(
+                f"L'installateur Ollama s'est terminé avec le code "
+                f"{result.returncode}."
+            )
+            sys.exit(1)
+
+        print_ok("Installateur Ollama terminé.")
+
+        print_info("3/3 - Vérification de l'installation...")
+        # Le PATH Windows peut ne pas être actualisé dans le processus courant.
+        # find_ollama() cherche donc aussi dans les emplacements classiques.
 
     except Exception as e:
         print_error(f"Impossible d'installer Ollama : {e}")
@@ -310,19 +361,34 @@ def check_model(ollama, output):
         return
 
     print_info(f"Téléchargement de {MODEL}...")
+    print_info("Progression du téléchargement :")
 
-    result = run([
-        ollama,
-        "pull",
-        MODEL
-    ])
-
-    if result and result.returncode == 0:
-        print_ok(f"{MODEL} installé.")
-    else:
-        print_error(
-            f"Impossible de télécharger {MODEL}."
+    try:
+        process = subprocess.Popen(
+            [ollama, "pull", MODEL],
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            bufsize=1
         )
+
+        # Ollama affiche lui-même les pourcentages et les octets téléchargés.
+        # On relaie directement sa sortie pour conserver cette progression.
+        for line in process.stdout:
+            print(line, end="")
+
+        returncode = process.wait()
+
+        if returncode == 0:
+            print_ok(f"{MODEL} installé.")
+        else:
+            print_error(
+                f"Impossible de télécharger {MODEL} "
+                f"(code {returncode})."
+            )
+
+    except Exception as e:
+        print_error(f"Erreur pendant le téléchargement de {MODEL} : {e}")
 
 
 # ============================================================
@@ -346,9 +412,10 @@ def main():
         sys.exit(1)
 
     # --------------------------------------------------------
-    # Vérification
+    # Étape 1/4 : Vérification
     # --------------------------------------------------------
 
+    print_info("[1/4] Vérification de la présence d'Ollama...")
     ollama = find_ollama()
 
     if ollama:
@@ -385,16 +452,18 @@ def main():
         )
 
     # --------------------------------------------------------
-    # Linux : service
+    # Étape 3/4 : Service Linux
     # --------------------------------------------------------
 
+    print_info("[3/4] Configuration du service Ollama...")
     if system == "Linux":
         start_linux_service()
 
     # --------------------------------------------------------
-    # Test
+    # Étape 4/4 : Test
     # --------------------------------------------------------
 
+    print_info("[4/4] Test de fonctionnement d'Ollama...")
     output = test_ollama(ollama)
 
     if not output:
@@ -412,9 +481,10 @@ def main():
         sys.exit(1)
 
     # --------------------------------------------------------
-    # Modèle
+    # Étape 4/4 : Modèle
     # --------------------------------------------------------
 
+    print_info("[4/4] Vérification / téléchargement du modèle...")
     check_model(
         ollama,
         output
