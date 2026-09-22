@@ -33,7 +33,7 @@ python setup.py
 ##  Linux
 ```bash
 cd local_ia
-python setup.py
+python main.py
 ```
 
 ---
@@ -42,6 +42,6 @@ python setup.py
 ```powershell
 cd $HOME/Documents
 cd local_ia
-python setup.py
+python main.py
 ```
 
