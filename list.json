@@ -1,0 +1,22 @@
+{
+    "models": [
+        {
+            "name": "llama3.2:3b",
+            "id": "a80c4f17acd5",
+            "size": "2.0",
+            "modified": "GB About a minute ago"
+        },
+        {
+            "name": "qwen3:8b",
+            "id": "500a1f067a9f",
+            "size": "5.2",
+            "modified": "GB About an hour ago"
+        },
+        {
+            "name": "deepseek-coder:6.7b",
+            "id": "ce298d984115",
+            "size": "3.8",
+            "modified": "GB About an hour ago"
+        }
+    ]
+}

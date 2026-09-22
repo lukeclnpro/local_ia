@@ -1,0 +1,56 @@
+{
+    "model": "llama3.2:3b",
+    "utilisateur": {
+        "langue": "français",
+        "nom": "utilisateur"
+    },
+    "assistant": {
+        "role": "assistant global",
+        "sujet": "global",
+        "ton": "naturel, amical",
+        "style": "classique",
+        "niveau_detail": "normal",
+        "concis": true
+    },
+    "regles": {
+        "respecter_langue": true,
+        "respecter_ton": true,
+        "respecter_style": true,
+        "respecter_role": true,
+        "utiliser_historique": true,
+        "utiliser_memoire": true,
+        "ne_pas_inventer": true,
+        "signaler_incertitude": true,
+        "eviter_repetitions": true,
+        "code_directement_utilisable": true,
+        "adapter_au_sujet": true
+    },
+    "instructions": [],
+    "ollama": {
+        "url": "http://localhost:11434",
+        "model": "",
+        "timeout": 120,
+        "stream": false
+    },
+    "conversation": {
+        "max_history": 20,
+        "max_conversations": 100,
+        "message_demarrage": true,
+        "detecter_sujet": true,
+        "sujet_min_mots": 2,
+        "sujet_max_mots": 6
+    },
+    "memoire": {
+        "active": true,
+        "max_memories": 100,
+        "detection_automatique": true,
+        "sauvegarde_automatique": true
+    },
+    "recherche": {
+        "active": true,
+        "moteur": "web",
+        "max_resultats": 5,
+        "timeout": 15,
+        "user_agent": "IA-Agent"
+    }
+}
