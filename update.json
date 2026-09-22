@@ -1,0 +1,15 @@
+{
+    "versions": [
+        {
+            "version": "1.0.0",
+            "date": "2026-09-22",
+            "title": "Première version",
+            "changes": [
+                "Ajout du système de gestion des modèles Ollama.",
+                "Ajout du lancement de l'IA locale.",
+                "Ajout de la gestion des conversations.",
+                "Ajout de la configuration de l'IA."
+            ]
+        }
+    ]
+}

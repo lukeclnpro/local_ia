@@ -22,6 +22,24 @@ LIST_FILE = BASE_DIR / "list.json"
 AGENT_FILE = BASE_DIR / "ia_agent.py"
 CONFIG_FILE = BASE_DIR / "config.py"
 CHAT_DIR = BASE_DIR / "chats"
+GITHUB_REPO = "https://github.com/lukeclnpro/local_ia"
+GITHUB_BRANCH = "main"
+VERSION_FILE = BASE_DIR / "version.json"
+UPDATE_FILE = BASE_DIR / "update.json"
+REMOTE_VERSION_URL = (
+    "https://raw.githubusercontent.com/"
+    "lukeclnpro/local_ia/main/version.json"
+)
+
+REMOTE_UPDATE_URL = (
+    "https://raw.githubusercontent.com/"
+    "lukeclnpro/local_ia/main/update.json"
+)
+
+REMOTE_ZIP_URL = (
+    "https://github.com/lukeclnpro/local_ia/"
+    "archive/refs/heads/main.zip"
+)
 
 
 # ============================================================
@@ -737,6 +755,570 @@ def launch_ai():
             f"l'IA : {error}"
         )
 
+# ============================================================
+# 7 - MISE À JOUR DU PROGRAMME
+# ============================================================
+
+def load_json_file(path):
+    """Charge un fichier JSON local."""
+    try:
+        with path.open("r", encoding="utf-8") as file:
+            return json.load(file)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+
+def get_current_version():
+    """Retourne la version installée localement."""
+    data = load_json_file(VERSION_FILE)
+
+    if not data:
+        return "0.0.0"
+
+    return str(data.get("version", "0.0.0"))
+
+
+def download_json(url):
+    """Télécharge un fichier JSON depuis GitHub."""
+    try:
+        import urllib.request
+
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": "Local-IA-Updater"
+            }
+        )
+
+        with urllib.request.urlopen(
+            request,
+            timeout=10
+        ) as response:
+
+            content = response.read().decode("utf-8")
+
+        return json.loads(content)
+
+    except Exception as error:
+        print()
+        ui.print_error(
+            f"Impossible de récupérer les informations : {error}"
+        )
+        return None
+
+
+def version_to_tuple(version):
+    """
+    Transforme une version du type 1.2.3
+    en tuple comparable.
+    """
+    try:
+        parts = str(version).strip().lstrip("v").split(".")
+
+        return tuple(
+            int(part)
+            for part in parts
+        )
+
+    except (ValueError, AttributeError):
+        return (0, 0, 0)
+
+
+def check_for_update(show_message=True):
+    """
+    Vérifie si une version plus récente est disponible
+    sur GitHub.
+
+    Retourne :
+        (True, remote_version)
+        (False, current_version)
+        (None, None) en cas d'erreur.
+    """
+
+    current_version = get_current_version()
+
+    remote_data = download_json(
+        REMOTE_VERSION_URL
+    )
+
+    if remote_data is None:
+        return None, None
+
+    remote_version = str(
+        remote_data.get(
+            "version",
+            current_version
+        )
+    )
+
+    current_tuple = version_to_tuple(
+        current_version
+    )
+
+    remote_tuple = version_to_tuple(
+        remote_version
+    )
+
+    if remote_tuple > current_tuple:
+
+        if show_message:
+            print()
+
+            ui.print_warn(
+                "Une nouvelle version est disponible !"
+            )
+
+            print(
+                f"Version installée : {current_version}"
+            )
+
+            print(
+                f"Nouvelle version  : {remote_version}"
+            )
+
+        return True, remote_version
+
+    if show_message:
+        print()
+
+        ui.print_ok(
+            f"Vous utilisez déjà la dernière version "
+            f"({current_version})."
+        )
+
+    return False, current_version
+
+
+def update_program():
+    """
+    Télécharge la dernière version du dépôt GitHub
+    et met uniquement à jour les fichiers Python (.py).
+
+    Les fichiers JSON, conversations, configurations et
+    autres fichiers locaux ne sont jamais remplacés.
+    """
+
+    print()
+
+    ui.section_title(
+        "MISE À JOUR",
+        clear=False
+    )
+
+    print(
+        "Vérification de la dernière version..."
+    )
+
+    update_available, version = check_for_update(
+        show_message=True
+    )
+
+    if update_available is None:
+        pause()
+        return
+
+    if not update_available:
+        pause()
+        return
+
+    print()
+
+    confirmation = ui.prompt(
+        f"Installer la version {version} ? (o/N) : "
+    ).strip().lower()
+
+    if confirmation != "o":
+        ui.print_warn(
+            "Mise à jour annulée."
+        )
+        pause()
+        return
+
+    print()
+
+    ui.print_info(
+        "Téléchargement des fichiers Python..."
+    )
+
+    import tempfile
+    import zipfile
+    import urllib.request
+
+    try:
+
+        with tempfile.TemporaryDirectory() as temp:
+
+            temp_dir = Path(temp)
+
+            zip_path = temp_dir / "update.zip"
+
+            # ------------------------------------------------
+            # TÉLÉCHARGEMENT DE L'ARCHIVE GITHUB
+            # ------------------------------------------------
+
+            request = urllib.request.Request(
+                REMOTE_ZIP_URL,
+                headers={
+                    "User-Agent": "Local-IA-Updater"
+                }
+            )
+
+            with urllib.request.urlopen(
+                request,
+                timeout=60
+            ) as response:
+
+                with zip_path.open(
+                    "wb"
+                ) as file:
+
+                    file.write(
+                        response.read()
+                    )
+
+            # ------------------------------------------------
+            # EXTRACTION
+            # ------------------------------------------------
+
+            extract_dir = temp_dir / "extracted"
+
+            extract_dir.mkdir()
+
+            with zipfile.ZipFile(
+                zip_path,
+                "r"
+            ) as archive:
+
+                archive.extractall(
+                    extract_dir
+                )
+
+            source_dirs = list(
+                extract_dir.iterdir()
+            )
+
+            if len(source_dirs) != 1:
+                raise RuntimeError(
+                    "Structure de l'archive GitHub invalide."
+                )
+
+            source_dir = source_dirs[0]
+
+            # ------------------------------------------------
+            # RECHERCHE UNIQUEMENT DES .PY
+            # ------------------------------------------------
+
+            python_files = []
+
+            for source_path in source_dir.rglob("*.py"):
+
+                if not source_path.is_file():
+                    continue
+
+                relative_path = (
+                    source_path.relative_to(
+                        source_dir
+                    )
+                )
+
+                # Ne jamais récupérer les fichiers Python
+                # présents dans certains dossiers inutiles.
+                if any(
+                    part in {
+                        ".git",
+                        "__pycache__",
+                        ".github",
+                    }
+                    for part in relative_path.parts
+                ):
+                    continue
+
+                python_files.append(
+                    relative_path
+                )
+
+            if not python_files:
+
+                raise RuntimeError(
+                    "Aucun fichier Python trouvé dans le dépôt."
+                )
+
+            # ------------------------------------------------
+            # AFFICHAGE
+            # ------------------------------------------------
+
+            print()
+
+            ui.print_info(
+                f"{len(python_files)} fichier(s) Python trouvé(s)."
+            )
+
+            print()
+
+            for relative_path in python_files:
+
+                print(
+                    f"  • {relative_path}"
+                )
+
+            print()
+
+            # ------------------------------------------------
+            # SAUVEGARDE DES FICHIERS ACTUELS
+            # ------------------------------------------------
+
+            backup_dir = (
+                temp_dir / "backup"
+            )
+
+            backup_dir.mkdir()
+
+            existing_files = []
+
+            for relative_path in python_files:
+
+                destination = (
+                    BASE_DIR / relative_path
+                )
+
+                if destination.exists():
+
+                    backup_path = (
+                        backup_dir / relative_path
+                    )
+
+                    backup_path.parent.mkdir(
+                        parents=True,
+                        exist_ok=True
+                    )
+
+                    shutil.copy2(
+                        destination,
+                        backup_path
+                    )
+
+                    existing_files.append(
+                        relative_path
+                    )
+
+            # ------------------------------------------------
+            # INSTALLATION DES PYTHON
+            # ------------------------------------------------
+
+            try:
+
+                for relative_path in python_files:
+
+                    source = (
+                        source_dir / relative_path
+                    )
+
+                    destination = (
+                        BASE_DIR / relative_path
+                    )
+
+                    destination.parent.mkdir(
+                        parents=True,
+                        exist_ok=True
+                    )
+
+                    shutil.copy2(
+                        source,
+                        destination
+                    )
+
+            except Exception:
+
+                # --------------------------------------------
+                # RESTAURATION EN CAS D'ERREUR
+                # --------------------------------------------
+
+                ui.print_error(
+                    "Erreur pendant la mise à jour."
+                )
+
+                for relative_path in existing_files:
+
+                    backup_path = (
+                        backup_dir / relative_path
+                    )
+
+                    destination = (
+                        BASE_DIR / relative_path
+                    )
+
+                    if backup_path.exists():
+
+                        shutil.copy2(
+                            backup_path,
+                            destination
+                        )
+
+                raise
+
+            # ------------------------------------------------
+            # FIN
+            # ------------------------------------------------
+
+            print()
+
+            ui.print_ok(
+                f"Programme mis à jour vers la version {version}."
+            )
+
+            print()
+
+            ui.print_info(
+                "Seuls les fichiers Python ont été remplacés."
+            )
+
+            ui.print_info(
+                "Vos fichiers JSON et vos conversations "
+                "ont été conservés."
+            )
+
+            print()
+
+            ui.print_info(
+                "Redémarrez le programme pour appliquer "
+                "complètement la mise à jour."
+            )
+
+            pause()
+
+    except urllib.error.URLError as error:
+
+        ui.print_error(
+            f"Erreur réseau : {error}"
+        )
+
+        pause()
+
+    except zipfile.BadZipFile:
+
+        ui.print_error(
+            "L'archive téléchargée est invalide."
+        )
+
+        pause()
+
+    except Exception as error:
+
+        ui.print_error(
+            f"La mise à jour a échoué : {error}"
+        )
+
+        pause()
+
+
+# ============================================================
+# 8 - AFFICHER LES NOUVEAUTÉS
+# ============================================================
+
+def show_updates():
+    """
+    Télécharge update.json depuis GitHub et affiche
+    les nouveautés de chaque version.
+    """
+
+    print()
+
+    ui.section_title(
+        "NOUVEAUTÉS",
+        clear=False
+    )
+
+    ui.print_info(
+        "Récupération des nouveautés..."
+    )
+
+    data = download_json(
+        REMOTE_UPDATE_URL
+    )
+
+    if data is None:
+        pause()
+        return
+
+    versions = data.get(
+        "versions",
+        []
+    )
+
+    if not versions:
+
+        ui.print_warn(
+            "Aucune nouveauté disponible."
+        )
+
+        pause()
+        return
+
+    # Plus récente en premier
+    versions = sorted(
+        versions,
+        key=lambda item: version_to_tuple(
+            item.get("version", "0.0.0")
+        ),
+        reverse=True
+    )
+
+    for release in versions:
+
+        version = release.get(
+            "version",
+            "?"
+        )
+
+        date = release.get(
+            "date",
+            ""
+        )
+
+        title = release.get(
+            "title",
+            ""
+        )
+
+        print()
+
+        print(
+            ui.colorize(
+                f"Version {version}",
+                ui.C.OK
+            )
+        )
+
+        if date:
+            print(
+                ui.colorize(
+                    f"Date : {date}",
+                    ui.C.DIM + ui.C.WHITE
+                )
+            )
+
+        if title:
+            print(
+                ui.colorize(
+                    title,
+                    ui.C.SUBTITLE
+                )
+            )
+
+        changes = release.get(
+            "changes",
+            []
+        )
+
+        for change in changes:
+
+            print(
+                f"  • {change}"
+            )
+
+    print()
+
+    pause()
 
 # ============================================================
 # 2 - LISTER LES MODELES
@@ -1189,25 +1771,41 @@ def edit_ai_config():
 # ============================================================
 # MENU PRINCIPAL
 # ============================================================
+def get_version():
+    version_file = Path(__file__).parent / "version.json"
+
+    try:
+        with open(version_file, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        return data.get("version", "Inconnue")
+
+    except (FileNotFoundError, json.JSONDecodeError):
+        return "Inconnue"
 
 def menu():
 
     while True:
+        version = get_version()
 
         ui.full_menu(
-            "OLLAMA LOCAL AI",
+            f"OLLAMA LOCAL AI - v{version}",
             [
                 ("1", "Lancer l'IA locale"),
                 ("2", "Lister les modèles"),
                 ("3", "Installer un modèle"),
                 ("4", "Désinstaller un modèle"),
                 ("5", "Modifier la configuration de l'IA"),
+                ("7", "Mettre à jour le programme"),
+                ("8", "Voir les nouveautés"),
                 ("0", "Quitter"),
             ],
             footer="Votre choix : ",
         )
 
-        choice = ui.prompt("Votre choix : ").strip()
+        choice = ui.prompt(
+            "Votre choix : "
+        ).strip()
 
         if choice == "1":
 
@@ -1232,14 +1830,28 @@ def menu():
 
             edit_ai_config()
 
+        elif choice == "7":
+
+            update_program()
+
+        elif choice == "8":
+
+            show_updates()
+
         elif choice == "0":
 
-            ui.print_info("Fermeture.")
+            ui.print_info(
+                "Fermeture."
+            )
+
             break
 
         else:
 
-            ui.print_error("Choix invalide.")
+            ui.print_error(
+                "Choix invalide."
+            )
+
             pause()
 
 # ============================================================
