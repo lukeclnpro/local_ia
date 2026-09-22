@@ -1,226 +1,794 @@
 #!/usr/bin/env python3
 """
-setup_local_ia.py
+setup.py - local_ia multiplateforme
 
-Installe et lance local_ia depuis un dépôt déjà présent sur la machine.
+Systèmes pris en charge :
+    - Windows 10 / 11
+    - Linux :
+        - Arch Linux / CachyOS / Manjaro / EndeavourOS
+        - Debian / Ubuntu / Linux Mint / Pop!_OS
+        - Fedora / RHEL / Rocky / AlmaLinux
+        - openSUSE
+        - autres distributions Linux
+    - macOS
 
-Le script NE clone PAS le dépôt.
-Il doit être placé à la racine du projet local_ia, à côté de :
-    main.py
-    ollama_test.py
+Le script :
+    - détecte automatiquement le système
+    - vérifie Python
+    - détecte Ollama
+    - vérifie que le serveur Ollama répond
+    - démarre Ollama si nécessaire sous Linux
+    - crée un environnement virtuel Python
+    - installe requirements.txt
+    - lance main.py
 
-Support :
-    - Linux (CachyOS / Arch Linux)
-    - Windows
+IMPORTANT :
+    Le script n'installe aucun modèle Ollama.
 
 Usage :
-    python setup_local_ia.py
+    python setup.py
+
+Optionnel :
+    python setup.py --no-launch
 """
 
+from __future__ import annotations
+
+import argparse
+import os
 import platform
 import shutil
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 
-MODEL = "qwen2.5:1.5b"
+MIN_PYTHON = (3, 10)
+
+OLLAMA_HOST = "127.0.0.1"
+OLLAMA_PORT = 11434
 
 
-def run(command, *, cwd=None, shell=False):
-    """Exécute une commande et arrête le script en cas d'erreur."""
-    display = command if isinstance(command, str) else " ".join(map(str, command))
+# ============================================================
+# OUTILS GÉNÉRAUX
+# ============================================================
+
+def run(command, *, cwd=None, check=True, capture_output=False):
+    """Exécute une commande."""
+    display = (
+        command
+        if isinstance(command, str)
+        else " ".join(map(str, command))
+    )
+
     print(f"\n>>> {display}")
 
-    subprocess.run(
+    return subprocess.run(
         command,
         cwd=cwd,
-        shell=shell,
-        check=True,
+        check=check,
+        capture_output=capture_output,
+        text=True,
     )
 
 
-def find_project_dir():
-    """
-    Le script est normalement à la racine du projet.
-    On utilise son dossier comme répertoire de travail.
-    """
-    project_dir = Path(__file__).resolve().parent
+def command_exists(command):
+    """Retourne True si une commande existe."""
+    return shutil.which(command) is not None
 
-    if not (project_dir / "main.py").exists():
-        print(
-            f"Erreur : main.py est introuvable dans :\n{project_dir}\n\n"
-            "Place setup_local_ia.py à la racine du projet local_ia.",
-            file=sys.stderr,
+
+def find_project_dir():
+    """Retourne le dossier contenant setup.py."""
+    project_dir = Path(__file__).resolve().parent
+    main_py = project_dir / "main.py"
+
+    if not main_py.is_file():
+        raise RuntimeError(
+            f"main.py est introuvable dans :\n{project_dir}\n\n"
+            "Place setup.py à la racine du projet."
         )
-        sys.exit(1)
 
     return project_dir
 
 
-def install_linux(project_dir):
-    print("=== Installation pour Linux / CachyOS ===")
+# ============================================================
+# SYSTÈME
+# ============================================================
 
-    # Dépendances système
-    run([
-        "sudo",
-        "pacman",
-        "-Syu",
-        "--needed",
-        "--noconfirm",
-        "python",
-        "python-pip",
-        "python-virtualenv",
-        "curl",
-        "git",
-        "base-devel",
-    ])
+def get_system():
+    """Détecte le système d'exploitation."""
+    system = platform.system()
 
-    # Vérification/test Ollama fourni par le projet
-    ollama_test = project_dir / "ollama_test.py"
-    if ollama_test.exists():
-        run([sys.executable, str(ollama_test)], cwd=project_dir)
+    if system == "Windows":
+        return "windows"
 
-    # Service Ollama
-    if shutil.which("systemctl"):
-        run(["sudo", "systemctl", "enable", "--now", "ollama"])
+    if system == "Linux":
+        return "linux"
 
-    # Vérification de la présence de la commande ollama
-    if not shutil.which("ollama"):
-        print(
-            "\nErreur : la commande 'ollama' est introuvable.\n"
-            "Installe Ollama sur ton système puis relance le script.",
-            file=sys.stderr,
-        )
-        sys.exit(1)
+    if system == "Darwin":
+        return "macos"
 
-    # Téléchargement du modèle
-    run(["ollama", "pull", MODEL])
-
-    # Création du venv
-    venv_dir = project_dir / ".venv"
-    run([sys.executable, "-m", "venv", str(venv_dir)])
-
-    venv_python = venv_dir / "bin" / "python"
-
-    # Mise à jour de pip
-    run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
-
-    # Rend main.py exécutable
-    main_py = project_dir / "main.py"
-    main_py.chmod(main_py.stat().st_mode | 0o111)
-
-    # Lance le programme avec le venv
-    run([str(venv_python), str(main_py)], cwd=project_dir)
+    return "unknown"
 
 
-def install_windows(project_dir):
-    print("=== Installation pour Windows ===")
+def detect_linux_distribution():
+    """Détecte la distribution Linux."""
+    if not Path("/etc/os-release").is_file():
+        return {
+            "id": "unknown",
+            "name": "Linux",
+            "id_like": "",
+            "version": "",
+        }
 
-    # Autorisation des scripts PowerShell pour l'utilisateur courant
-    run(
-        "Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser",
-        shell=True,
+    data = {}
+
+    try:
+        for line in Path("/etc/os-release").read_text(
+            encoding="utf-8",
+            errors="replace",
+        ).splitlines():
+
+            if "=" not in line:
+                continue
+
+            key, value = line.split("=", 1)
+            data[key] = value.strip().strip('"')
+
+    except OSError:
+        return {
+            "id": "unknown",
+            "name": "Linux",
+            "id_like": "",
+            "version": "",
+        }
+
+    return {
+        "id": data.get("ID", "unknown"),
+        "name": data.get("PRETTY_NAME", "Linux"),
+        "id_like": data.get("ID_LIKE", ""),
+        "version": data.get("VERSION_ID", ""),
+    }
+
+
+def print_system_info():
+    """Affiche les informations du système."""
+    system = get_system()
+
+    print("\n=== Système détecté ===")
+    print(f"Système : {platform.system()}")
+    print(f"Version : {platform.release()}")
+    print(f"Architecture : {platform.machine()}")
+
+    if system == "linux":
+        distro = detect_linux_distribution()
+
+        print(f"Distribution : {distro['name']}")
+        print(f"ID : {distro['id']}")
+
+        if distro["version"]:
+            print(f"Version : {distro['version']}")
+
+    elif system == "windows":
+        print(f"Windows : {platform.version()}")
+
+    elif system == "macos":
+        print(f"macOS : {platform.mac_ver()[0]}")
+
+
+# ============================================================
+# PYTHON
+# ============================================================
+
+def check_python():
+    """Vérifie la version de Python."""
+    version = sys.version_info
+
+    print(
+        f"\nPython détecté : "
+        f"{version.major}.{version.minor}.{version.micro}"
     )
 
-    # Installation des logiciels avec winget.
-    # --accept-source-agreements / --accept-package-agreements
-    # évitent les questions interactives lorsque winget les supporte.
-    if not shutil.which("winget"):
-        print(
-            "\nErreur : winget est introuvable.\n"
-            "Installe/active App Installer (winget), puis relance le script.",
-            file=sys.stderr,
+    if version < MIN_PYTHON:
+        raise RuntimeError(
+            f"Python {MIN_PYTHON[0]}.{MIN_PYTHON[1]} "
+            "ou plus récent est requis.\n"
+            f"Version détectée : "
+            f"{version.major}.{version.minor}.{version.micro}"
         )
-        sys.exit(1)
 
-    run([
-        "winget",
-        "install",
-        "--id",
-        "Python.Python.3",
-        "-e",
-        "--accept-source-agreements",
-        "--accept-package-agreements",
-    ])
 
-    run([
-        "winget",
-        "install",
-        "--id",
-        "Ollama.Ollama",
-        "-e",
-        "--accept-source-agreements",
-        "--accept-package-agreements",
-    ])
+# ============================================================
+# OUTILS SYSTÈME
+# ============================================================
 
-    # Git n'est volontairement PAS installé :
-    # le script n'utilise plus git clone et n'en a pas besoin.
+def check_basic_tools():
+    """Vérifie les outils indispensables."""
+    system = get_system()
 
-    # Après l'installation de Python/Ollama par winget, les PATH peuvent
-    # ne pas être actualisés dans le processus Python actuel.
-    python_cmd = shutil.which("python") or sys.executable
-    ollama_cmd = shutil.which("ollama") or "ollama"
+    if system == "windows":
+        python_ok = (
+            command_exists("python")
+            or command_exists("py")
+        )
+    else:
+        python_ok = (
+            command_exists("python3")
+            or command_exists("python")
+        )
 
-    # Test Ollama fourni par le projet
-    ollama_test = project_dir / "ollama_test.py"
-    if ollama_test.exists():
-        run([python_cmd, str(ollama_test)], cwd=project_dir)
+    if not python_ok:
+        raise RuntimeError(
+            "Python est introuvable.\n\n"
+            "Installe Python 3.10 ou plus récent puis "
+            "relance setup.py."
+        )
 
-    # Téléchargement du modèle
-    run([ollama_cmd, "pull", MODEL])
+    print("Outils système : OK")
 
-    # Création du venv
+
+# ============================================================
+# OLLAMA
+# ============================================================
+
+def find_ollama():
+    """Cherche Ollama dans le PATH et les emplacements classiques."""
+    path = shutil.which("ollama")
+
+    if path:
+        return path
+
+    system = get_system()
+    possible_paths = []
+
+    if system == "windows":
+        local_app_data = os.environ.get("LOCALAPPDATA")
+
+        if local_app_data:
+            possible_paths.extend([
+                Path(local_app_data)
+                / "Programs"
+                / "Ollama"
+                / "ollama.exe",
+
+                Path(local_app_data)
+                / "Ollama"
+                / "ollama.exe",
+            ])
+
+        possible_paths.extend([
+            Path("C:/Program Files/Ollama/ollama.exe"),
+            Path("C:/Program Files (x86)/Ollama/ollama.exe"),
+        ])
+
+    elif system == "macos":
+        possible_paths.extend([
+            Path("/usr/local/bin/ollama"),
+            Path("/opt/homebrew/bin/ollama"),
+            Path(
+                "/Applications/Ollama.app/"
+                "Contents/Resources/ollama"
+            ),
+        ])
+
+    elif system == "linux":
+        possible_paths.extend([
+            Path("/usr/local/bin/ollama"),
+            Path("/usr/bin/ollama"),
+            Path.home() / ".local" / "bin" / "ollama",
+        ])
+
+    for candidate in possible_paths:
+        if candidate.is_file():
+            return str(candidate)
+
+    return None
+
+
+def check_ollama():
+    """Vérifie qu'Ollama est installé."""
+    ollama = find_ollama()
+
+    if ollama:
+        print(f"\nOllama détecté : {ollama}")
+        return ollama
+
+    system = get_system()
+
+    print("\nOllama est introuvable.")
+
+    if system == "windows":
+        print(
+            "\nInstalle Ollama depuis :\n"
+            "https://ollama.com/download/windows\n"
+        )
+
+    elif system == "macos":
+        print(
+            "\nInstalle Ollama depuis :\n"
+            "https://ollama.com/download\n"
+        )
+
+    elif system == "linux":
+        print(
+            "\nInstallation Linux officielle :\n"
+            "curl -fsSL https://ollama.com/install.sh | sh\n"
+        )
+
+    raise RuntimeError(
+        "\nOllama doit être installé avant de continuer."
+    )
+
+
+# ============================================================
+# SERVEUR OLLAMA
+# ============================================================
+
+def ollama_api_available():
+    """Vérifie si le serveur Ollama répond."""
+    url = (
+        f"http://{OLLAMA_HOST}:"
+        f"{OLLAMA_PORT}/api/tags"
+    )
+
+    try:
+        with urllib.request.urlopen(
+            url,
+            timeout=2,
+        ) as response:
+            return response.status == 200
+
+    except (
+        urllib.error.URLError,
+        TimeoutError,
+        ConnectionError,
+        OSError,
+    ):
+        return False
+
+
+def wait_for_ollama(timeout=30):
+    """Attend le démarrage du serveur Ollama."""
+    print("Attente du démarrage d'Ollama...")
+
+    start = time.monotonic()
+
+    while time.monotonic() - start < timeout:
+        if ollama_api_available():
+            return True
+
+        time.sleep(1)
+
+    return False
+
+
+def start_ollama_linux(ollama):
+    """Démarre Ollama sous Linux."""
+    if ollama_api_available():
+        print("Serveur Ollama : actif.")
+        return
+
+    print("\n=== Démarrage d'Ollama ===")
+
+    if command_exists("systemctl"):
+        status = subprocess.run(
+            [
+                "systemctl",
+                "is-active",
+                "--quiet",
+                "ollama",
+            ],
+            check=False,
+        )
+
+        if status.returncode == 0:
+            print("Service Ollama : actif.")
+            return
+
+        result = subprocess.run(
+            [
+                "systemctl",
+                "start",
+                "ollama",
+            ],
+            check=False,
+        )
+
+        if result.returncode != 0 and command_exists("sudo"):
+            print(
+                "Tentative de démarrage avec sudo..."
+            )
+
+            result = subprocess.run(
+                [
+                    "sudo",
+                    "systemctl",
+                    "start",
+                    "ollama",
+                ],
+                check=False,
+            )
+
+        if result.returncode == 0:
+            if wait_for_ollama():
+                print("Serveur Ollama : actif.")
+                return
+
+    print(
+        "Tentative de lancement direct "
+        "de `ollama serve`..."
+    )
+
+    try:
+        subprocess.Popen(
+            [ollama, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        raise RuntimeError(
+            f"Impossible de démarrer Ollama : {exc}"
+        ) from exc
+
+    if wait_for_ollama():
+        print("Serveur Ollama : actif.")
+        return
+
+    raise RuntimeError(
+        "Ollama est installé mais son serveur "
+        "ne répond pas."
+    )
+
+
+def start_ollama_macos(ollama):
+    """Démarre Ollama sous macOS."""
+    if ollama_api_available():
+        print("Serveur Ollama : actif.")
+        return
+
+    print("\n=== Démarrage d'Ollama ===")
+
+    try:
+        subprocess.Popen(
+            [ollama, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except OSError as exc:
+        raise RuntimeError(
+            f"Impossible de démarrer Ollama : {exc}"
+        ) from exc
+
+    if wait_for_ollama():
+        print("Serveur Ollama : actif.")
+        return
+
+    raise RuntimeError(
+        "Ollama est installé mais son serveur "
+        "ne répond pas."
+    )
+
+
+def start_ollama_windows(ollama):
+    """Démarre Ollama sous Windows."""
+    if ollama_api_available():
+        print("Serveur Ollama : actif.")
+        return
+
+    print("\n=== Démarrage d'Ollama ===")
+
+    try:
+        subprocess.Popen(
+            [ollama, "serve"],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=getattr(
+                subprocess,
+                "CREATE_NO_WINDOW",
+                0,
+            ),
+        )
+    except OSError as exc:
+        raise RuntimeError(
+            f"Impossible de démarrer Ollama : {exc}"
+        ) from exc
+
+    if wait_for_ollama():
+        print("Serveur Ollama : actif.")
+        return
+
+    raise RuntimeError(
+        "Ollama est installé mais son serveur "
+        "ne répond pas.\n\n"
+        "Ouvre l'application Ollama depuis le "
+        "menu Démarrer puis relance setup.py."
+    )
+
+
+def ensure_ollama_service(ollama):
+    """S'assure qu'Ollama répond."""
+    if ollama_api_available():
+        print("Serveur Ollama : actif.")
+        return
+
+    system = get_system()
+
+    if system == "linux":
+        start_ollama_linux(ollama)
+
+    elif system == "macos":
+        start_ollama_macos(ollama)
+
+    elif system == "windows":
+        start_ollama_windows(ollama)
+
+    else:
+        raise RuntimeError(
+            "Système d'exploitation non pris en charge."
+        )
+
+
+# ============================================================
+# TEST OLLAMA
+# ============================================================
+
+def test_ollama(project_dir, python_cmd):
+    """Lance ollama_test.py s'il existe."""
+    test_file = project_dir / "ollama_test.py"
+
+    if not test_file.is_file():
+        print(
+            "\nollama_test.py absent : "
+            "test Ollama ignoré."
+        )
+        return
+
+    print("\n=== Test Ollama du projet ===")
+
+    run(
+        [
+            str(python_cmd),
+            str(test_file),
+        ],
+        cwd=project_dir,
+    )
+
+
+# ============================================================
+# ENVIRONNEMENT VIRTUEL
+# ============================================================
+
+def get_venv_python(project_dir):
+    """Retourne le Python du venv."""
     venv_dir = project_dir / ".venv"
-    run([python_cmd, "-m", "venv", str(venv_dir)])
 
-    venv_python = venv_dir / "Scripts" / "python.exe"
+    if get_system() == "windows":
+        return venv_dir / "Scripts" / "python.exe"
 
-    # Mise à jour de pip
-    run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"])
+    return venv_dir / "bin" / "python"
 
-    # Lance le programme avec le venv
+
+def create_venv(project_dir):
+    """Crée l'environnement virtuel."""
+    venv_dir = project_dir / ".venv"
+    venv_python = get_venv_python(project_dir)
+
+    if venv_python.is_file():
+        print(
+            f"\nEnvironnement virtuel déjà présent : "
+            f"{venv_dir}"
+        )
+        return venv_python
+
+    print(
+        "\n=== Création de l'environnement virtuel ==="
+    )
+
+    run([
+        sys.executable,
+        "-m",
+        "venv",
+        str(venv_dir),
+    ])
+
+    if not venv_python.is_file():
+        raise RuntimeError(
+            "Le Python du venv n'a pas été créé :\n"
+            f"{venv_python}"
+        )
+
+    return venv_python
+
+
+# ============================================================
+# DÉPENDANCES
+# ============================================================
+
+def install_python_dependencies(
+    project_dir,
+    venv_python,
+):
+    """Installe requirements.txt."""
+    requirements = project_dir / "requirements.txt"
+
+    print("\n=== Dépendances Python ===")
+
+    run([
+        str(venv_python),
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "pip",
+    ])
+
+    if not requirements.is_file():
+        print(
+            "requirements.txt absent : "
+            "aucune dépendance supplémentaire."
+        )
+        return
+
+    print(f"Installation depuis : {requirements}")
+
+    run([
+        str(venv_python),
+        "-m",
+        "pip",
+        "install",
+        "-r",
+        str(requirements),
+    ])
+
+
+# ============================================================
+# LANCEMENT
+# ============================================================
+
+def launch_project(project_dir, venv_python):
+    """Lance main.py."""
     main_py = project_dir / "main.py"
-    run([str(venv_python), str(main_py)], cwd=project_dir)
 
+    print("\n=== Lancement de local_ia ===")
+
+    run(
+        [
+            str(venv_python),
+            str(main_py),
+        ],
+        cwd=project_dir,
+    )
+
+
+# ============================================================
+# ARGUMENTS
+# ============================================================
+
+def parse_arguments():
+    parser = argparse.ArgumentParser(
+        description=(
+            "Installation multiplateforme "
+            "de local_ia."
+        )
+    )
+
+    parser.add_argument(
+        "--no-launch",
+        action="store_true",
+        help=(
+            "Installe tout sans lancer main.py."
+        ),
+    )
+
+    return parser.parse_args()
+
+
+# ============================================================
+# MAIN
+# ============================================================
 
 def main():
-    project_dir = find_project_dir()
+    args = parse_arguments()
+
+    system = get_system()
+
+    if system == "unknown":
+        raise RuntimeError(
+            f"Système non pris en charge : "
+            f"{platform.system()}"
+        )
 
     print("========================================")
     print("       local_ia - Installation")
+    print("       Multiplateforme")
     print("========================================")
-    print(f"Dossier : {project_dir}")
-    print("Le dépôt existant sera utilisé.")
-    print("Aucun git clone ne sera effectué.")
 
-    system = platform.system()
+    project_dir = find_project_dir()
 
-    try:
-        if system == "Linux":
-            install_linux(project_dir)
+    print(f"\nDossier du projet : {project_dir}")
 
-        elif system == "Windows":
-            install_windows(project_dir)
+    print_system_info()
 
-        else:
-            print(
-                f"\nSystème non supporté : {system}",
-                file=sys.stderr,
-            )
-            sys.exit(1)
+    # Python
+    check_python()
+    check_basic_tools()
 
-    except subprocess.CalledProcessError as exc:
+    # Ollama
+    print("\n=== Vérification Ollama ===")
+
+    ollama = check_ollama()
+    ensure_ollama_service(ollama)
+
+    # Environnement Python
+    venv_python = create_venv(project_dir)
+
+    install_python_dependencies(
+        project_dir,
+        venv_python,
+    )
+
+    # Test Ollama
+    test_ollama(
+        project_dir,
+        venv_python,
+    )
+
+    # Lancement
+    if args.no_launch:
         print(
-            f"\nErreur : la commande a échoué avec le code {exc.returncode}.",
-            file=sys.stderr,
+            "\n--no-launch utilisé : "
+            "main.py ne sera pas lancé."
         )
-        sys.exit(exc.returncode)
+    else:
+        launch_project(
+            project_dir,
+            venv_python,
+        )
 
     print("\n========================================")
     print("Installation terminée.")
     print("========================================")
 
 
+# ============================================================
+# ERREURS
+# ============================================================
+
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+
+    except KeyboardInterrupt:
+        print(
+            "\nInstallation interrompue.",
+            file=sys.stderr,
+        )
+        sys.exit(130)
+
+    except subprocess.CalledProcessError as exc:
+        print(
+            "\nErreur : une commande a échoué "
+            f"avec le code {exc.returncode}.",
+            file=sys.stderr,
+        )
+        sys.exit(exc.returncode)
+
+    except RuntimeError as exc:
+        print(
+            f"\nErreur : {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    except Exception as exc:
+        print(
+            "\nErreur inattendue : "
+            f"{type(exc).__name__}: {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
