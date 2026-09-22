@@ -1323,8 +1323,9 @@ def update_program():
 
 def show_updates():
     """
-    Télécharge update.json depuis GitHub et affiche
-    les nouveautés de chaque version.
+    Affiche les nouveautés depuis le fichier update.json local.
+
+    Aucun téléchargement depuis GitHub n'est effectué.
     """
 
     print()
@@ -1335,14 +1336,21 @@ def show_updates():
     )
 
     ui.print_info(
-        "Récupération des nouveautés..."
+        "Lecture des nouveautés locales..."
     )
 
-    data = download_json(
-        REMOTE_UPDATE_URL
-    )
+    # --------------------------------------------------------
+    # CHARGEMENT DU FICHIER LOCAL
+    # --------------------------------------------------------
+
+    data = load_json_file(UPDATE_FILE)
 
     if data is None:
+
+        ui.print_error(
+            f"Impossible de lire {UPDATE_FILE.name}."
+        )
+
         pause()
         return
 
@@ -1360,14 +1368,20 @@ def show_updates():
         pause()
         return
 
-    # Plus récente en premier
-    versions = sorted(
-        versions,
-        key=lambda item: version_to_tuple(
-            item.get("version", "0.0.0")
-        ),
-        reverse=True
-    )
+    # --------------------------------------------------------
+    # TRI : PLUS RÉCENTE EN PREMIER
+    # --------------------------------------------------------
+
+        versions = sorted(
+            versions,
+            key=lambda item: version_to_tuple(
+                item.get("version", "0.0.0")
+            )
+        )
+
+    # --------------------------------------------------------
+    # AFFICHAGE
+    # --------------------------------------------------------
 
     for release in versions:
 
@@ -1396,6 +1410,7 @@ def show_updates():
         )
 
         if date:
+
             print(
                 ui.colorize(
                     f"Date : {date}",
@@ -1404,6 +1419,7 @@ def show_updates():
             )
 
         if title:
+
             print(
                 ui.colorize(
                     title,
