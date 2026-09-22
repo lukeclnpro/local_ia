@@ -891,11 +891,16 @@ def check_for_update(show_message=True):
 
 def update_program():
     """
-    Télécharge la dernière version du dépôt GitHub
-    et met uniquement à jour les fichiers Python (.py).
+    Télécharge la dernière version du dépôt GitHub.
 
-    Les fichiers JSON, conversations, configurations et
-    autres fichiers locaux ne sont jamais remplacés.
+    Fichiers mis à jour :
+        - tous les fichiers Python (.py)
+        - version.json
+        - update.json
+
+    Les autres fichiers JSON locaux, les configurations,
+    les conversations et les autres données utilisateur
+    ne sont jamais remplacés.
     """
 
     print()
@@ -937,7 +942,7 @@ def update_program():
     print()
 
     ui.print_info(
-        "Téléchargement des fichiers Python..."
+        "Téléchargement des fichiers de mise à jour..."
     )
 
     import tempfile
@@ -952,9 +957,9 @@ def update_program():
 
             zip_path = temp_dir / "update.zip"
 
-            # ------------------------------------------------
+            # =================================================
             # TÉLÉCHARGEMENT DE L'ARCHIVE GITHUB
-            # ------------------------------------------------
+            # =================================================
 
             request = urllib.request.Request(
                 REMOTE_ZIP_URL,
@@ -976,9 +981,9 @@ def update_program():
                         response.read()
                     )
 
-            # ------------------------------------------------
+            # =================================================
             # EXTRACTION
-            # ------------------------------------------------
+            # =================================================
 
             extract_dir = temp_dir / "extracted"
 
@@ -998,17 +1003,31 @@ def update_program():
             )
 
             if len(source_dirs) != 1:
+
                 raise RuntimeError(
                     "Structure de l'archive GitHub invalide."
                 )
 
             source_dir = source_dirs[0]
 
-            # ------------------------------------------------
-            # RECHERCHE UNIQUEMENT DES .PY
-            # ------------------------------------------------
+            # =================================================
+            # RECHERCHE DES FICHIERS À METTRE À JOUR
+            # =================================================
+            #
+            # On récupère :
+            #
+            #   - tous les .py
+            #   - version.json
+            #   - update.json
+            #
+            # Les autres JSON ne sont PAS touchés.
+            #
 
-            python_files = []
+            update_files = []
+
+            # -------------------------------------------------
+            # FICHIERS PYTHON
+            # -------------------------------------------------
 
             for source_path in source_dir.rglob("*.py"):
 
@@ -1033,39 +1052,90 @@ def update_program():
                 ):
                     continue
 
-                python_files.append(
+                update_files.append(
                     relative_path
                 )
 
-            if not python_files:
+            # -------------------------------------------------
+            # FICHIERS JSON AUTORISÉS
+            # -------------------------------------------------
 
-                raise RuntimeError(
-                    "Aucun fichier Python trouvé dans le dépôt."
+            json_files = [
+                Path("version.json"),
+                Path("update.json"),
+            ]
+
+            for relative_path in json_files:
+
+                source_path = (
+                    source_dir / relative_path
                 )
 
-            # ------------------------------------------------
+                if not source_path.is_file():
+
+                    raise RuntimeError(
+                        f"Le fichier {relative_path} "
+                        "est absent du dépôt GitHub."
+                    )
+
+                update_files.append(
+                    relative_path
+                )
+
+            # -------------------------------------------------
+            # SUPPRESSION DES DOUBLONS
+            # -------------------------------------------------
+
+            update_files = list(
+                dict.fromkeys(update_files)
+            )
+
+            if not update_files:
+
+                raise RuntimeError(
+                    "Aucun fichier à mettre à jour trouvé."
+                )
+
+            # =================================================
             # AFFICHAGE
-            # ------------------------------------------------
+            # =================================================
 
             print()
 
             ui.print_info(
-                f"{len(python_files)} fichier(s) Python trouvé(s)."
+                f"{len(update_files)} fichier(s) "
+                "à mettre à jour."
             )
 
             print()
 
-            for relative_path in python_files:
+            for relative_path in update_files:
+
+                if relative_path.suffix == ".py":
+
+                    label = "Python"
+
+                elif relative_path == Path("version.json"):
+
+                    label = "Version"
+
+                elif relative_path == Path("update.json"):
+
+                    label = "Nouveautés"
+
+                else:
+
+                    label = "Fichier"
 
                 print(
-                    f"  • {relative_path}"
+                    f"  • {relative_path} ({label})"
                 )
 
             print()
 
-            # ------------------------------------------------
+            # =================================================
             # SAUVEGARDE DES FICHIERS ACTUELS
-            # ------------------------------------------------
+            # =================================================
 
             backup_dir = (
                 temp_dir / "backup"
@@ -1075,7 +1145,7 @@ def update_program():
 
             existing_files = []
 
-            for relative_path in python_files:
+            for relative_path in update_files:
 
                 destination = (
                     BASE_DIR / relative_path
@@ -1101,13 +1171,13 @@ def update_program():
                         relative_path
                     )
 
-            # ------------------------------------------------
-            # INSTALLATION DES PYTHON
-            # ------------------------------------------------
+            # =================================================
+            # INSTALLATION DES FICHIERS
+            # =================================================
 
             try:
 
-                for relative_path in python_files:
+                for relative_path in update_files:
 
                     source = (
                         source_dir / relative_path
@@ -1129,9 +1199,9 @@ def update_program():
 
             except Exception:
 
-                # --------------------------------------------
+                # ---------------------------------------------
                 # RESTAURATION EN CAS D'ERREUR
-                # --------------------------------------------
+                # ---------------------------------------------
 
                 ui.print_error(
                     "Erreur pendant la mise à jour."
@@ -1149,6 +1219,11 @@ def update_program():
 
                     if backup_path.exists():
 
+                        destination.parent.mkdir(
+                            parents=True,
+                            exist_ok=True
+                        )
+
                         shutil.copy2(
                             backup_path,
                             destination
@@ -1156,9 +1231,30 @@ def update_program():
 
                 raise
 
-            # ------------------------------------------------
+            # =================================================
+            # VÉRIFICATION DE VERSION
+            # =================================================
+
+            installed_version = get_current_version()
+
+            if version_to_tuple(installed_version) != version_to_tuple(version):
+
+                ui.print_warn(
+                    "Attention : la version installée "
+                    "ne correspond pas à la version téléchargée."
+                )
+
+                print(
+                    f"Version attendue : {version}"
+                )
+
+                print(
+                    f"Version installée : {installed_version}"
+                )
+
+            # =================================================
             # FIN
-            # ------------------------------------------------
+            # =================================================
 
             print()
 
@@ -1169,12 +1265,22 @@ def update_program():
             print()
 
             ui.print_info(
-                "Seuls les fichiers Python ont été remplacés."
+                "Fichiers Python mis à jour."
             )
 
             ui.print_info(
-                "Vos fichiers JSON et vos conversations "
-                "ont été conservés."
+                "version.json mis à jour."
+            )
+
+            ui.print_info(
+                "update.json mis à jour."
+            )
+
+            print()
+
+            ui.print_info(
+                "Vos autres fichiers JSON, configurations "
+                "et conversations ont été conservés."
             )
 
             print()
