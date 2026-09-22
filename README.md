@@ -1,6 +1,6 @@
 # Local IA
 
-Installation et lancement de **Local IA** sur Linux et Windows :
+# Installation et lancement de **Local IA** sur Linux et Windows :
 
 
 ##  Linux
@@ -21,7 +21,13 @@ cd local_ia
 python setup.py
 
 ```
-lancement de **Local IA** apres installation :
+
+
+
+
+
+
+# lancement de **Local IA** apres installation :
 
 
 ##  Linux
