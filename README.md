@@ -1,6 +1,6 @@
 # 🤖 Local IA
 
-> Une interface locale pour utiliser des modèles d'IA avec [Ollama](https://ollama.com/), directement depuis votre machine.
+> Une interface locale pour utiliser des modèles d'IA directement depuis votre machine, avec une intégration **Ollama optionnelle**.
 
 <!-- VERSION:START -->
 **Version actuelle : `0.1.7`**
@@ -23,8 +23,9 @@
 ## 📋 Prérequis
 
 - **Python 3.10 ou plus récent**
-- **Ollama** installé et accessible dans le terminal
 - Une connexion Internet est nécessaire pour l'installation et les mises à jour
+
+> **Important :** l'installation de Local IA **n'installe pas Ollama automatiquement**. Si vous n'utilisez pas Ollama, aucune installation supplémentaire n'est nécessaire de ce côté.
 
 ## 🚀 Installation
 
@@ -36,6 +37,8 @@ cd local_ia
 python3 setup.py
 ```
 
+> Le script d'installation configure Local IA mais **ne télécharge ni n'installe Ollama**.
+
 ### Windows
 
 ```powershell
@@ -44,6 +47,8 @@ git clone https://github.com/lukeclnpro/local_ia.git
 cd local_ia
 python setup.py
 ```
+
+> Le script d'installation configure Local IA
 
 ## ▶️ Lancer Local IA
 
