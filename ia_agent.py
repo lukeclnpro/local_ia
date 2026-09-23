@@ -695,9 +695,16 @@ def optimize_messages(messages, max_chars=12000):
 # OLLAMA
 # ============================================================
 
-def ask_ollama(messages):
+def ask_ollama(messages, model=None, timeout=300):
+    """Envoie directement une conversation à Ollama.
+
+    Cette fonction est également utilisée par server.py afin que
+    l'interface web passe directement par le moteur local_ia, sans
+    avoir besoin de faire transiter les requêtes par main.py.
+    """
+    selected_model = str(model or MODEL).strip() or MODEL
     payload = {
-        "model": MODEL,
+        "model": selected_model,
         "messages": messages,
         "stream": False
     }
@@ -714,7 +721,7 @@ def ask_ollama(messages):
     )
 
     try:
-        with urlopen(request, timeout=300) as response:
+        with urlopen(request, timeout=max(5, int(timeout))) as response:
             result = json.loads(
                 response.read().decode("utf-8")
             )

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>local_ia</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <div><h1>local_ia</h1><span id="status">Connexion…</span></div>
+  <nav>
+    <button class="nav active" data-page="home">Accueil</button>
+    <button class="nav" data-page="models">Modèles</button>
+    <button class="nav" data-page="chat">Chat</button>
+    <button class="nav" data-page="config">Configuration</button>
+  </nav>
+</header>
+<main>
+<section id="home" class="page">
+  <div class="card hero">
+    <h2>Assistant IA local</h2>
+    <p>Interface web pour utiliser les modèles installés et gérer les conversations.</p>
+    <div class="notice"><b>Gestion des modèles et de la configuration</b>
+      <p>L'installation/désinstallation des modèles et la modification de la configuration se font uniquement dans l'interface en ligne de commande de <code>main.py</code>. Elles ne sont volontairement pas disponibles sur ce site.</p>
+    </div>
+  </div>
+  <div class="stats">
+    <div class="card"><small>Ollama</small><strong id="ollama">—</strong></div>
+    <div class="card"><small>Modèle configuré</small><strong id="defaultModel">—</strong></div>
+    <div class="card"><small>Modèles installés</small><strong id="modelCount">—</strong></div>
+    <div class="card"><small>Conversations</small><strong id="chatCount">—</strong></div>
+  </div>
+</section>
+
+<section id="models" class="page hidden">
+  <div class="card">
+    <h2>Modèles installés</h2>
+    <p class="muted">Lecture seule. Pour installer ou supprimer un modèle, utilisez <code>main.py</code> dans le terminal.</p>
+    <div id="modelsList"></div>
+  </div>
+</section>
+
+<section id="chat" class="page hidden">
+  <div class="card controls">
+    <label>Conversation<select id="chatSelect"></select></label>
+    <button id="newChat">Nouvelle conversation</button>
+    <label>Modèle<select id="modelSelect"></select></label>
+  </div>
+  <div id="messages" class="card messages"></div>
+  <form id="chatForm">
+    <textarea id="message" placeholder="Écrivez votre message…" required></textarea>
+    <button id="send" type="submit">Envoyer</button>
+  </form>
+</section>
+
+<section id="config" class="page hidden">
+  <div class="card">
+    <h2>Configuration</h2>
+    <div class="notice"><b>Configuration modifiable uniquement depuis le terminal</b>
+      <p>Cette interface ne modifie aucun fichier de configuration. Utilisez l'interface en ligne de commande de <code>main.py</code> pour modifier les paramètres de l'IA.</p>
+    </div>
+    <div id="configInfo" class="info"></div>
+  </div>
+</section>
+</main>
+<script src="/app.js"></script>
+</body>
+</html>

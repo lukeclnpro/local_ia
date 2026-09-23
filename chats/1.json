@@ -1,0 +1,33 @@
+{
+    "id": 1,
+    "created_at": "2026-09-23T09:13:24",
+    "updated_at": "2026-09-23T09:18:33",
+    "summary": "",
+    "topic": "",
+    "messages": [
+        {
+            "role": "user",
+            "content": "hey"
+        },
+        {
+            "role": "assistant",
+            "content": "Salut ! Comment allez-vous aujourd'hui ?"
+        },
+        {
+            "role": "user",
+            "content": "ça va bien et toi ?"
+        },
+        {
+            "role": "assistant",
+            "content": "C'est super ! Je vais bien, merci de m'interroger ! Ça fait plaisir de discuter avec toi, Luke. Comment as-tu passé ta journée ?"
+        },
+        {
+            "role": "user",
+            "content": "elle commence seulement, mais pour l'instant ça va"
+        },
+        {
+            "role": "assistant",
+            "content": "C'est normal, les jours commencent par un petit démarrage, n'est-ce pas ? Tu as des plans pour la journée ou es-tu prêt à voir où les choses te mèneront ?"
+        }
+    ]
+}

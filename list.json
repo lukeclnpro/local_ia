@@ -4,19 +4,13 @@
             "name": "llama3.2:3b",
             "id": "a80c4f17acd5",
             "size": "2.0",
-            "modified": "GB 54 minutes ago"
+            "modified": "GB 15 minutes ago"
         },
         {
-            "name": "qwen3:8b",
-            "id": "500a1f067a9f",
-            "size": "5.2",
-            "modified": "GB 2 hours ago"
-        },
-        {
-            "name": "deepseek-coder:6.7b",
-            "id": "ce298d984115",
-            "size": "3.8",
-            "modified": "GB 2 hours ago"
+            "name": "qwen3-coder:30b",
+            "id": "06c1097efce0",
+            "size": "18",
+            "modified": "GB 9 hours ago"
         }
     ]
 }

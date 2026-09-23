@@ -8,6 +8,9 @@ from pathlib import Path
 
 import json
 import os
+import time
+from urllib.request import Request, urlopen
+from urllib.error import URLError, HTTPError
 
 import ui
 
@@ -895,10 +898,11 @@ def update_program():
 
     Fichiers mis à jour :
         - tous les fichiers Python (.py)
+        - tous les fichiers HTML/CSS/JS du dossier web/
         - version.json
         - update.json
 
-    Les autres fichiers JSON locaux, les configurations,
+    Les autres fichiers locaux, les configurations,
     les conversations et les autres données utilisateur
     ne sont jamais remplacés.
     """
@@ -1057,6 +1061,33 @@ def update_program():
                 )
 
             # -------------------------------------------------
+            # FICHIERS WEB (HTML / CSS / JS)
+            # -------------------------------------------------
+            #
+            # L'interface web fait partie intégrante du programme.
+            # On installe donc automatiquement tous les fichiers
+            # .html, .css et .js du dossier web/.
+            #
+            # Les autres fichiers présents dans web/ ne sont pas
+            # remplacés par le service de mise à jour.
+            #
+
+            for source_path in (source_dir / "web").rglob("*"):
+                if not source_path.is_file():
+                    continue
+
+                if source_path.suffix.lower() not in {
+                    ".html",
+                    ".css",
+                    ".js",
+                }:
+                    continue
+
+                relative_path = source_path.relative_to(source_dir)
+
+                update_files.append(relative_path)
+
+            # -------------------------------------------------
             # FICHIERS JSON AUTORISÉS
             # -------------------------------------------------
 
@@ -1122,6 +1153,17 @@ def update_program():
                 elif relative_path == Path("update.json"):
 
                     label = "Nouveautés"
+
+                elif relative_path.parts and relative_path.parts[0] == "web":
+
+                    label = {
+                        ".html": "HTML",
+                        ".css": "CSS",
+                        ".js": "JavaScript",
+                    }.get(
+                        relative_path.suffix.lower(),
+                        "Web",
+                    )
 
                 else:
 
@@ -1266,6 +1308,10 @@ def update_program():
 
             ui.print_info(
                 "Fichiers Python mis à jour."
+            )
+
+            ui.print_info(
+                "Fichiers HTML/CSS/JS de l'interface web mis à jour."
             )
 
             ui.print_info(
@@ -1890,6 +1936,253 @@ def edit_ai_config():
         )
 
 
+
+def ollama_server_url():
+    """Retourne l'URL de l'API Ollama configurée."""
+    config = load_config()
+    value = config.get("ollama", {}) if isinstance(config, dict) else {}
+    if isinstance(value, dict):
+        url = value.get("url") or "http://127.0.0.1:11434"
+    else:
+        url = "http://127.0.0.1:11434"
+
+    url = str(url).rstrip("/")
+    if url.endswith("/api"):
+        url = url[:-4]
+    return url
+
+
+def ollama_is_running():
+    """Vérifie que le serveur Ollama répond à /api/tags."""
+    try:
+        request = Request(
+            ollama_server_url() + "/api/tags",
+            method="GET",
+        )
+        with urlopen(request, timeout=2) as response:
+            return response.status == 200
+    except (URLError, HTTPError, OSError, TimeoutError):
+        return False
+
+
+def wait_for_ollama(timeout=30):
+    """Attend qu'Ollama soit disponible."""
+    deadline = time.monotonic() + timeout
+
+    while time.monotonic() < deadline:
+        if ollama_is_running():
+            return True
+        time.sleep(0.5)
+
+    return False
+
+
+def start_ollama_for_server():
+    """
+    Prépare Ollama avant de lancer server.py.
+
+    - Vérifie que l'exécutable Ollama existe.
+    - Ne relance pas Ollama s'il est déjà actif.
+    - Sinon démarre `ollama serve` en arrière-plan.
+    - Attend que l'API soit réellement disponible.
+    - Vérifie le modèle configuré et le télécharge s'il manque.
+    """
+    ollama = get_ollama()
+
+    if ollama is None:
+        ui.print_error("Ollama est introuvable dans le PATH.")
+        return False
+
+    print()
+    ui.section_title("PRÉPARATION DE L'IA", clear=False)
+
+    if ollama_is_running():
+        ui.print_ok("Serveur Ollama déjà actif.")
+    else:
+        ui.print_info("Démarrage du serveur Ollama...")
+
+        try:
+            kwargs = {
+                "cwd": str(BASE_DIR),
+                "stdin": subprocess.DEVNULL,
+                "stdout": subprocess.DEVNULL,
+                "stderr": subprocess.DEVNULL,
+            }
+
+            if os.name == "nt" or sys.platform.startswith("win"):
+                kwargs["creationflags"] = getattr(
+                    subprocess, "CREATE_NO_WINDOW", 0
+                )
+            else:
+                kwargs["start_new_session"] = True
+
+            subprocess.Popen(
+                [ollama, "serve"],
+                **kwargs,
+            )
+        except OSError as error:
+            ui.print_error(f"Impossible de démarrer Ollama : {error}")
+            return False
+
+        if not wait_for_ollama(30):
+            ui.print_error(
+                "Ollama a été lancé mais son API ne répond pas "
+                "après 30 secondes."
+            )
+            return False
+
+        ui.print_ok("Serveur Ollama prêt.")
+
+    # Le projet accepte à la fois l'ancien format {"model": "..."}
+    # et le nouveau format {"ollama": {"model": "..."}}.
+    config = load_config()
+    model = ""
+
+    nested = config.get("ollama", {})
+    if isinstance(nested, dict):
+        model = str(nested.get("model") or "").strip()
+
+    if not model:
+        model = str(config.get("model") or "").strip()
+
+    if not model:
+        ui.print_error(
+            "Aucun modèle n'est configuré dans config.json."
+        )
+        ui.print_info(
+            "Lancez d'abord l'IA locale (option 1) pour sélectionner un modèle."
+        )
+        return False
+
+    # Vérifie que le modèle est installé.
+    try:
+        request = Request(
+            ollama_server_url() + "/api/tags",
+            method="GET",
+        )
+        with urlopen(request, timeout=5) as response:
+            data = json.loads(response.read().decode("utf-8"))
+
+        installed = {
+            str(item.get("name", "")).strip()
+            for item in data.get("models", [])
+            if item.get("name")
+        }
+    except Exception as error:
+        ui.print_error(f"Impossible de vérifier les modèles Ollama : {error}")
+        return False
+
+    if model not in installed:
+        ui.print_warn(
+            f"Le modèle '{model}' n'est pas installé. Téléchargement..."
+        )
+
+        try:
+            result = subprocess.run(
+                [ollama, "pull", model],
+                cwd=str(BASE_DIR),
+                check=False,
+            )
+        except OSError as error:
+            ui.print_error(f"Impossible de lancer `ollama pull` : {error}")
+            return False
+
+        if result.returncode != 0:
+            ui.print_error(
+                f"Le téléchargement du modèle '{model}' a échoué."
+            )
+            return False
+
+        ui.print_ok(f"Modèle '{model}' prêt.")
+    else:
+        ui.print_ok(f"Modèle '{model}' déjà installé.")
+
+    return True
+
+
+def launch_server():
+    """
+    Prépare toute la pile IA puis lance server.py dans la même console.
+
+    Ollama est démarré (si nécessaire) et le modèle configuré est vérifié/
+    téléchargé avant de démarrer le serveur web. Le serveur prend ensuite
+    la main dans cette même fenêtre jusqu'à son arrêt avec Ctrl+C.
+    """
+    server_file = BASE_DIR / "server.py"
+
+    if not server_file.exists():
+        ui.print_error("server.py est introuvable.")
+        pause()
+        return
+
+    ui.section_title("SERVEUR WEB", clear=False)
+    print(
+        ui.colorize(
+            "Le serveur sera lancé dans cette même console après la préparation d'Ollama.",
+            ui.C.INFO,
+        )
+    )
+    print()
+
+    while True:
+        raw_port = ui.prompt("Port HTTP (8080 par défaut) : ").strip()
+
+        if not raw_port:
+            port = 8080
+            break
+
+        if not raw_port.isdigit():
+            ui.print_error("Le port doit être un nombre.")
+            continue
+
+        port = int(raw_port)
+
+        if not 1 <= port <= 65535:
+            ui.print_error("Le port doit être compris entre 1 et 65535.")
+            continue
+
+        break
+
+    # IMPORTANT : Ollama et le modèle sont préparés AVANT de lancer le serveur.
+    if not start_ollama_for_server():
+        pause()
+        return
+
+    print()
+    ui.print_ok("Ollama et le modèle sont prêts.")
+    ui.print_info(f"Démarrage du serveur sur le port {port}...")
+    print()
+
+    env = os.environ.copy()
+    env["LOCAL_IA_MAIN_PID"] = str(os.getpid())
+    env["LOCAL_IA_SERVER_PORT"] = str(port)
+
+    try:
+        # Aucun nouveau terminal / aucune nouvelle console :
+        # server.py s'exécute directement dans la console actuelle.
+        result = subprocess.run(
+            [sys.executable, str(server_file), str(port)],
+            cwd=str(BASE_DIR),
+            env=env,
+            check=False,
+        )
+
+        if result.returncode != 0:
+            ui.print_error(
+                f"Le serveur s'est arrêté avec le code {result.returncode}."
+            )
+        else:
+            ui.print_info("Serveur arrêté.")
+
+    except KeyboardInterrupt:
+        print("\n")
+        ui.print_info("Arrêt du serveur demandé.")
+    except OSError as error:
+        ui.print_error(f"Impossible de lancer le serveur : {error}")
+
+    pause()
+
+
 # ============================================================
 # MENU PRINCIPAL
 # ============================================================
@@ -1918,6 +2211,7 @@ def menu():
                 ("3", "Installer un modèle"),
                 ("4", "Désinstaller un modèle"),
                 ("5", "Modifier la configuration de l'IA"),
+                ("6", "Lancer sur le serveur"),
                 ("7", "Mettre à jour le programme"),
                 ("8", "Voir les nouveautés"),
                 ("0", "Quitter"),
@@ -1951,6 +2245,10 @@ def menu():
         elif choice == "5":
 
             edit_ai_config()
+
+        elif choice == "6":
+
+            launch_server()
 
         elif choice == "7":
 
