@@ -7,7 +7,6 @@
 <!-- VERSION:END -->
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
-[![Ollama](https://img.shields.io/badge/Ollama-required-000000?logo=ollama&logoColor=white)](https://ollama.com/)
 [![License](https://img.shields.io/github/license/lukeclnpro/local_ia)](https://github.com/lukeclnpro/local_ia)
 
 ## ✨ Fonctionnalités
