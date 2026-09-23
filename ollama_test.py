@@ -8,6 +8,11 @@ import sys
 import time
 import urllib.request
 
+try:
+    import ui
+except Exception:
+    ui = None
+
 
 MODEL = "qwen2.5:1.5b"
 
@@ -355,6 +360,8 @@ def check_model(ollama, output):
     answer = input(
         f"Télécharger {MODEL} maintenant ? [O/n] : "
     ).strip().lower()
+    if ui is not None:
+        ui.clear_screen()
 
     if answer not in ("", "o", "oui", "y", "yes"):
         print_info("Téléchargement ignoré.")
@@ -396,6 +403,9 @@ def check_model(ollama, output):
 # ============================================================
 
 def main():
+
+    if ui is not None:
+        ui.clear_screen()
 
     print()
     print("=" * 60)

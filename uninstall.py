@@ -3,6 +3,8 @@ import sys
 import shutil
 import subprocess
 import time
+
+import ui
 from pathlib import Path
 
 
@@ -428,6 +430,7 @@ def main():
 
     while True:
 
+        ui.clear_screen()
         print()
         print("=" * 60)
         print("LOCAL_IA — DÉSINSTALLATEUR")
@@ -442,6 +445,7 @@ def main():
         print()
 
         choice = input("Votre choix : ").strip()
+        ui.clear_screen()
 
         if choice == "1":
             remove_program()

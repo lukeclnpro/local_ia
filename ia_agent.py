@@ -1143,6 +1143,11 @@ def main():
 
     while True:
 
+        # Chaque commande remplace entièrement l'écran précédent.
+        # L'ancien prompt, les anciens résultats et les anciens messages
+        # ne sont donc jamais empilés dans le terminal.
+        ui.clear_screen()
+
         prompt_header = (
             ui.colorize("Vous", ui.C.USER)
             + "  "

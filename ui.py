@@ -14,6 +14,7 @@ Fournit :
 import platform
 import shutil
 import subprocess
+import sys
 from datetime import datetime
 
 # Active les couleurs ANSI sous l'invite de commandes Windows
@@ -86,14 +87,37 @@ def term_size():
 
 
 def clear_screen():
-    """Efface le terminal sous Windows et Linux."""
-    command = "cls" if platform.system() == "Windows" else "clear"
-    subprocess.run(
-        command,
-        shell=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    """Efface complètement l'écran avant chaque nouvel écran interactif.
+
+    On utilise à la fois la séquence ANSI (rapide et multiplateforme) et
+    ``cls`` sous Windows pour éviter que les anciens contenus du terminal
+    restent visibles. Le curseur est replacé en haut à gauche.
+    """
+    try:
+        # ED 2 efface l'écran visible ; ED 3 efface le scrollback sur les
+        # terminaux qui le supportent.
+        sys.stdout.write("\033[2J\033[3J\033[H")
+        sys.stdout.flush()
+    except Exception:
+        pass
+
+    if platform.system() == "Windows":
+        try:
+            subprocess.run(
+                "cls",
+                shell=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except Exception:
+            pass
+
+
+def new_screen(title=None):
+    """Démarre un nouvel écran : aucun contenu de l'écran précédent ne reste."""
+    clear_screen()
+    if title:
+        section_title(title, clear=False)
 
 
 # ============================================================

@@ -589,6 +589,7 @@ def launch_ai():
     lequel utiliser, sauvegarde son choix dans config.json,
     puis lance ia_agent.py.
     """
+    ui.clear_screen()
 
     if not AGENT_FILE.exists():
 
@@ -906,6 +907,7 @@ def update_program():
     les conversations et les autres données utilisateur
     ne sont jamais remplacés.
     """
+    ui.clear_screen()
 
     print()
 
@@ -1377,6 +1379,7 @@ FORCE_UPDATE_PROTECTED = {
 
 def force_update():
     """Réinstalle intégralement le dépôt GitHub en conservant uniquement les 4 éléments protégés."""
+    ui.clear_screen()
     import tempfile
     import zipfile
     import urllib.request
@@ -1528,6 +1531,7 @@ def show_updates():
 
     Aucun téléchargement depuis GitHub n'est effectué.
     """
+    ui.clear_screen()
 
     print()
 
@@ -1652,6 +1656,7 @@ def list_models():
     Scan Ollama puis affiche les modèles installés
     avec leur taille.
     """
+    ui.clear_screen()
 
     print()
     ui.print_info("Scan des modèles Ollama...")
@@ -1949,6 +1954,7 @@ def uninstall_model():
     Effectue un scan puis permet de supprimer
     un modèle installé.
     """
+    ui.clear_screen()
 
     installed = scan_models()
 
@@ -2067,6 +2073,7 @@ def uninstall_model():
 
 def edit_ai_config():
     """Lance l'outil interactif de configuration de l'IA."""
+    ui.clear_screen()
 
     if not CONFIG_FILE.exists():
         print(
@@ -2263,6 +2270,7 @@ def launch_server():
     téléchargé avant de démarrer le serveur web. Le serveur prend ensuite
     la main dans cette même fenêtre jusqu'à son arrêt avec Ctrl+C.
     """
+    ui.clear_screen()
     server_file = BASE_DIR / "server.py"
 
     if not server_file.exists():
@@ -2377,6 +2385,10 @@ def menu():
         choice = ui.prompt(
             "Votre choix : "
         ).strip()
+
+        # Chaque outil commence sur un écran neuf : le menu précédent
+        # et la saisie de la commande ne restent jamais affichés.
+        ui.clear_screen()
 
         if choice == "1":
 

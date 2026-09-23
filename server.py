@@ -214,7 +214,9 @@ class Handler(BaseHTTPRequestHandler):
     server_version = "local_ia/2.0"
 
     def log_message(self, fmt, *args):
-        print("[WEB] " + (fmt % args))
+        # Le serveur tourne en continu : ne pas empiler les logs HTTP dans
+        # la console interactive. L'interface web reste la source d'affichage.
+        return
 
     def static(self, relative):
         root = WEB_DIR.resolve()
