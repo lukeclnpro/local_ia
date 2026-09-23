@@ -33,3 +33,6 @@ Thumbs.db
 # Fichiers temporaires
 *.tmp
 *.temp
+
+# Vidéo de présentation
+presentation.webm
