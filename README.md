@@ -62,3 +62,23 @@ cd $HOME/Documents
 cd local_ia
 python uninstall.py
 ```
+
+
+
+# Information :
+
+## les mise a jour depuis une version inferieur a la 0.0.4 inclu peuvent apporté un manque de fichier du a l'ancienne protection de telechargement. Nous vous conseillons donc de faire la mise a jour normalement, puis d'excecuter 
+###  Linux
+```bash
+cd local_ia
+python main.py force_update
+```
+
+---
+
+###  Windows
+```powershell
+cd $HOME/Documents
+cd local_ia
+python main.py force_update
+```
