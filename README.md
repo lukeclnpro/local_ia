@@ -45,3 +45,20 @@ cd local_ia
 python main.py
 ```
 
+# Desinstallation (seulement a partir de la 0.1.6) :
+
+
+##  Linux
+```bash
+cd local_ia
+python uninstall.py
+```
+
+---
+
+##  Windows
+```powershell
+cd $HOME/Documents
+cd local_ia
+python uninstall.py
+```
