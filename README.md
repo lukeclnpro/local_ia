@@ -37,7 +37,7 @@ cd local_ia
 python3 setup.py
 ```
 
-> Le script d'installation configure Local IA mais **ne télécharge ni n'installe Ollama**.
+> Le script d'installation configure Local IA
 
 ### Windows
 
