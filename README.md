@@ -1,84 +1,234 @@
-# Local IA
+# 🤖 Local IA
 
-# Installation et lancement de **Local IA** sur Linux et Windows :
+> Une interface locale pour utiliser des modèles d'IA avec [Ollama](https://ollama.com/), directement depuis votre machine.
 
+<!-- VERSION:START -->
+**Version actuelle : `0.1.7`**
+<!-- VERSION:END -->
 
-##  Linux
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Ollama](https://img.shields.io/badge/Ollama-required-000000?logo=ollama&logoColor=white)](https://ollama.com/)
+[![License](https://img.shields.io/github/license/lukeclnpro/local_ia)](https://github.com/lukeclnpro/local_ia)
+
+## ✨ Fonctionnalités
+
+- 🧠 Utilisation de modèles locaux via Ollama
+- 💬 Gestion des conversations
+- ⚙️ Configuration de l'IA
+- 🌐 Serveur web local pour accéder à l'IA depuis le réseau
+- 📦 Installation et gestion des modèles Ollama
+- 🔄 Vérification et installation des mises à jour
+- 🗑️ Script de désinstallation
+- 🖥️ Compatible Linux et Windows
+
+## 📋 Prérequis
+
+- **Python 3.10 ou plus récent**
+- **Ollama** installé et accessible dans le terminal
+- Une connexion Internet est nécessaire pour l'installation et les mises à jour
+
+## 🚀 Installation
+
+### Linux
+
 ```bash
 git clone https://github.com/lukeclnpro/local_ia.git
 cd local_ia
-python setup.py
-
+python3 setup.py
 ```
 
----
+### Windows
 
-##  Windows
 ```powershell
 cd $HOME/Documents
 git clone https://github.com/lukeclnpro/local_ia.git
 cd local_ia
 python setup.py
-
 ```
 
+## ▶️ Lancer Local IA
 
+### Linux
 
-
-
-
-# lancement de **Local IA** apres installation :
-
-
-##  Linux
 ```bash
 cd local_ia
+python3 main.py
+```
+
+### Windows
+
+```powershell
+cd $HOME/Documents/local_ia
 python main.py
 ```
 
----
+## 🧰 Commandes utiles
 
-##  Windows
-```powershell
-cd $HOME/Documents
-cd local_ia
-python main.py
-```
+Afficher l'aide :
 
-# Desinstallation (seulement a partir de la 0.1.6) :
-
-
-##  Linux
 ```bash
-cd local_ia
-python uninstall.py
+python main.py help
 ```
 
----
+Forcer une mise à jour depuis GitHub :
 
-##  Windows
-```powershell
-cd $HOME/Documents
-cd local_ia
-python uninstall.py
-```
-
-
-
-# Information :
-
-## les mise a jour depuis une version inferieur a la 0.0.4 inclu peuvent apporté un manque de fichier du a l'ancienne protection de telechargement. Nous vous conseillons donc de faire la mise a jour normalement, puis d'excecuter 
-###  Linux
 ```bash
-cd local_ia
 python main.py force_update
 ```
 
----
+Désinstaller Local IA :
 
-###  Windows
-```powershell
-cd $HOME/Documents
+```bash
+python uninstall.py
+```
+
+> Le script de désinstallation est disponible à partir de la version `0.1.6`.
+
+## 🌐 Serveur web
+
+Local IA inclut un serveur web local permettant aux autres appareils du réseau d'accéder à l'IA.
+
+Lancement :
+
+```bash
+python server.py
+```
+
+> Selon votre configuration réseau et votre pare-feu, il peut être nécessaire d'autoriser le port utilisé par le serveur.
+
+## 🔄 Mises à jour
+
+Les informations de version et le journal des changements sont centralisés dans :
+
+- [`version.json`](version.json) — version actuelle du projet
+- [`update.json`](update.json) — historique des versions et changements
+
+Le contenu ci-dessous est **généré automatiquement** à partir de ces deux fichiers. Il est donc inutile de modifier manuellement les sections dynamiques du README.
+
+### 📌 Version actuelle
+
+<!-- VERSION:START -->
+**Version actuelle : `0.1.7`**
+<!-- VERSION:END -->
+
+### 📝 Journal des mises à jour
+
+<!-- UPDATES:START -->
+<details>
+<summary>Version `0.1.7` — 2026-09-23 · **interface plein écran globale**</summary>
+
+- Chaque commande interactive démarre sur un écran entièrement nettoyé.
+- Les anciens messages, prompts et menus ne restent plus empilés dans le terminal.
+- Le comportement est appliqué aux outils principaux, à l'agent IA, à la configuration, au désinstalleur et aux utilitaires interactifs.
+
+</details>
+
+<details>
+<summary>Version `0.1.6` — 2026-09-23 · **script de desinstallation**</summary>
+
+- Ajout d'un script de desinstallation de local-ai, et au choix, ollama et ses modeles.
+- Ajout de deux nouveau argument de commande pour main.py --> ''help'' qui affiche une aide sur les commande possible ; ''force_update'' qui force la mise a jour depuis le depot github
+
+</details>
+
+<details>
+<summary>Version `0.1.5` — 2026-09-23 · **serveur web**</summary>
+
+- Ajout d'un serveur local qui permet a tout les membres du reseau de discuter avec l'ia.
+- Correctif des premiers bug et test du server local
+- debut de la creation d'un portage executable du programme
+- IMPORTANT : un possible bug du programme sur le serveur est possible pour les personnes ayant deja telecharger les anciennes version du programme, nous vous conseillons donc de supprimer le programme et de refaire une installation propre depuis le depot github (https://github.com/lukeclnpro/local_ia)
+
+</details>
+
+<details>
+<summary>Version `0.1.4` — 2026-09-22 · **0.1.4**</summary>
+
+- Resolution du bug d'affichage des versions dans le journal de mise a jour
+- Fichier concerné : main.py
+
+</details>
+
+<details>
+<summary>Version `0.1.3` — 2026-09-22 · **0.1.3**</summary>
+
+- Ajout d'une exception pour les fichier update.json et version.json lors du telechargement de la mise a jour
+- Fichier concerné : main.py
+
+</details>
+
+<details>
+<summary>Version `0.1.2` — 2026-09-21 · **Première version publique**</summary>
+
+- Ajout du système de gestion des modèles Ollama.
+- Ajout du lancement de l'IA locale.
+- Ajout de la gestion des conversations.
+- Ajout de la configuration de l'IA.
+
+</details>
+
+<!-- UPDATES:END -->
+
+## ⚠️ Anciennes versions
+
+Pour les mises à jour depuis une version **inférieure ou égale à `0.0.4`**, certains fichiers peuvent manquer à cause de l'ancien système de téléchargement.
+
+Après la mise à jour, exécutez :
+
+### Linux
+
+```bash
 cd local_ia
+python3 main.py force_update
+```
+
+### Windows
+
+```powershell
+cd $HOME/Documents/local_ia
 python main.py force_update
 ```
+
+## 📁 Structure du projet
+
+```text
+local_ia/
+├── main.py                 # Programme principal
+├── server.py               # Serveur web local
+├── ia_agent.py             # Agent IA
+├── ui.py                   # Interface terminal
+├── setup.py                # Installation
+├── uninstall.py            # Désinstallation
+├── config.json             # Configuration
+├── version.json            # Version actuelle
+├── update.json             # Journal des mises à jour
+├── list.json               # Modèles Ollama détectés
+├── web/                    # Interface web
+└── scripts/
+    └── generate_readme.py  # Génération du README dynamique
+```
+
+## 🤝 Contribution
+
+Les issues et pull requests sont les bienvenues.
+
+1. Forkez le dépôt.
+2. Créez une branche :
+
+```bash
+git checkout -b feature/ma-fonctionnalite
+```
+
+3. Effectuez vos modifications.
+4. Vérifiez le fonctionnement du projet.
+5. Ouvrez une pull request.
+
+## 📄 Licence
+
+Voir les fichiers du dépôt pour les informations de licence.
+
+---
+
+<p align="center">
+  <sub>Local IA — exécution locale, vos modèles restent sur votre machine.</sub>
+</p>
