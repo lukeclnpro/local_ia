@@ -1,0 +1,42 @@
+name: Update README
+
+on:
+  push:
+    paths:
+      - 'version.json'
+      - 'update.json'
+      - 'scripts/generate_readme.py'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Récupérer le dépôt
+        uses: actions/checkout@v4
+
+      - name: Installer Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Générer le README
+        run: python scripts/generate_readme.py
+
+      - name: Enregistrer les modifications
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add README.md
+
+          if git diff --cached --quiet; then
+            echo "Aucune modification du README."
+          else
+            git commit -m "docs: update README automatically"
+            git push
+          fi
