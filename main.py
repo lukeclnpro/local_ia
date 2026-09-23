@@ -1364,6 +1364,161 @@ def update_program():
 
 
 # ============================================================
+# FORCE UPDATE - RÉINSTALLATION COMPLÈTE DEPUIS GITHUB
+# ============================================================
+
+FORCE_UPDATE_PROTECTED = {
+    "_chats",
+    "_config.json",
+    "_list.json",
+    "_context.json",
+}
+
+
+def force_update():
+    """Réinstalle intégralement le dépôt GitHub en conservant uniquement les 4 éléments protégés."""
+    import tempfile
+    import zipfile
+    import urllib.request
+    import textwrap
+
+    print()
+    ui.section_title("FORCE UPDATE", clear=False)
+    ui.print_warn("Réinstallation complète depuis GitHub.")
+    print()
+    print("Éléments conservés :")
+    print("  • _chats/")
+    print("  • _config.json")
+    print("  • _list.json")
+    print("  • _context.json")
+    print()
+
+    temp_root = Path(tempfile.mkdtemp(prefix="local_ia_force_update_"))
+    zip_path = temp_root / "repository.zip"
+    extract_dir = temp_root / "extracted"
+    helper_path = temp_root / "force_update_worker.py"
+
+    try:
+        ui.print_info("Téléchargement complet du dépôt GitHub...")
+
+        request = urllib.request.Request(
+            REMOTE_ZIP_URL,
+            headers={"User-Agent": "Local-IA-Force-Updater"},
+        )
+
+        with urllib.request.urlopen(request, timeout=120) as response:
+            with zip_path.open("wb") as file:
+                shutil.copyfileobj(response, file)
+
+        ui.print_ok("Dépôt téléchargé.")
+
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(zip_path, "r") as archive:
+            archive.extractall(extract_dir)
+
+        source_dirs = [path for path in extract_dir.iterdir() if path.is_dir()]
+        if len(source_dirs) != 1:
+            raise RuntimeError("Structure de l'archive GitHub invalide.")
+
+        source_dir = source_dirs[0]
+
+        worker_code = textwrap.dedent('''
+            import os
+            import shutil
+            import sys
+            from pathlib import Path
+
+            PROTECTED = {
+                "_chats",
+                "_config.json",
+                "_list.json",
+                "_context.json",
+            }
+
+            def is_protected(relative_path):
+                parts = Path(relative_path).parts
+                return bool(parts) and parts[0] in PROTECTED
+
+            def remove_path(path):
+                if path.is_dir() and not path.is_symlink():
+                    shutil.rmtree(path)
+                else:
+                    path.unlink(missing_ok=True)
+
+            def copy_repository(source, destination):
+                for root, dirs, files in os.walk(source):
+                    root_path = Path(root)
+                    relative_root = root_path.relative_to(source)
+
+                    dirs[:] = [
+                        name for name in dirs
+                        if not is_protected(relative_root / name)
+                    ]
+
+                    destination_root = destination / relative_root
+                    destination_root.mkdir(parents=True, exist_ok=True)
+
+                    for filename in files:
+                        relative_file = relative_root / filename
+                        if is_protected(relative_file):
+                            continue
+
+                        source_file = source / relative_file
+                        destination_file = destination / relative_file
+                        destination_file.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source_file, destination_file)
+
+            def main():
+                source = Path(sys.argv[1]).resolve()
+                destination = Path(sys.argv[2]).resolve()
+
+                for item in destination.iterdir():
+                    if item.name in PROTECTED:
+                        continue
+                    remove_path(item)
+
+                copy_repository(source, destination)
+
+                print()
+                print("========================================")
+                print(" LOCAL_IA : FORCE UPDATE TERMINÉ")
+                print("========================================")
+                print()
+                print("Réinstallation complète depuis GitHub terminée.")
+                print("Conservés : _chats, _config.json, _list.json, _context.json")
+
+            if __name__ == "__main__":
+                try:
+                    main()
+                except Exception as error:
+                    print()
+                    print("[ERREUR] La réinstallation a échoué :", error)
+                    sys.exit(1)
+        ''').strip() + "\n"
+
+        helper_path.write_text(worker_code, encoding="utf-8")
+
+        ui.print_info("Lancement de la réinstallation complète...")
+        print()
+
+        process = subprocess.Popen(
+            [sys.executable, str(helper_path), str(source_dir), str(BASE_DIR)],
+            cwd=str(BASE_DIR),
+        )
+        return process.wait()
+
+    except URLError as error:
+        ui.print_error(f"Erreur réseau pendant le force update : {error}")
+        return 1
+    except zipfile.BadZipFile:
+        ui.print_error("L'archive GitHub téléchargée est invalide.")
+        return 1
+    except Exception as error:
+        ui.print_error(f"Le force update a échoué : {error}")
+        return 1
+
+
+# ============================================================
 # 8 - AFFICHER LES NOUVEAUTÉS
 # ============================================================
 
@@ -2274,11 +2429,81 @@ def menu():
 
             pause()
 
+
+def show_help():
+    """Affiche les commandes disponibles de LOCAL_IA."""
+    print()
+    print("=" * 72)
+    print("LOCAL_IA - COMMANDES DISPONIBLES")
+    print("=" * 72)
+    print()
+    print("COMMANDES PRINCIPALES")
+    print("  python main.py")
+    print("      Lance LOCAL_IA et affiche le menu principal.")
+    print()
+    print("  python main.py help")
+    print("      Affiche cette aide et la liste des commandes disponibles.")
+    print()
+    print("  python main.py -h")
+    print("  python main.py --help")
+    print("      Affiche également cette aide.")
+    print()
+    print("  python main.py force_update")
+    print("      Force une réinstallation complète depuis GitHub.")
+    print("      Tout est remplacé sauf :")
+    print("        - _chats/")
+    print("        - _config.json")
+    print("        - _list.json")
+    print("        - _context.json")
+    print()
+    print("SCRIPTS UTILITAIRES")
+    print("  python setup.py")
+    print("      Installe LOCAL_IA sur l'ordinateur.")
+    print()
+    print("  python uninstall.py")
+    print("      Désinstalle LOCAL_IA. Le script permet de choisir")
+    print("      séparément la suppression de LOCAL_IA, des modèles")
+    print("      Ollama et d'Ollama lui-même.")
+    print()
+    print("  python config.py")
+    print("      Permet de modifier la configuration de l'IA.")
+    print()
+    print("  python ollama_test.py")
+    print("      Vérifie l'installation et l'accessibilité d'Ollama.")
+    print()
+    print("MENU LOCAL_IA")
+    print("  Une fois 'python main.py' lancé, le menu permet notamment de :")
+    print("    1 - Lancer l'IA locale")
+    print("    2 - Lister les modèles")
+    print("    3 - Installer un modèle")
+    print("    4 - Désinstaller un modèle")
+    print("    5 - Modifier la configuration de l'IA")
+    print("    6 - Lancer le serveur")
+    print("    7 - Mettre à jour le programme")
+    print("    8 - Voir les nouveautés")
+    print("    0 - Quitter")
+    print()
+    print("=" * 72)
+    print()
+
+
 # ============================================================
 # PROGRAMME PRINCIPAL
 # ============================================================
 
 def main():
+
+    # Commandes en ligne de commande. Elles sont traitées avant
+    # le menu et avant toute vérification Ollama.
+    if len(sys.argv) > 1:
+        command = sys.argv[1].strip().lower()
+
+        if command in {"help", "-h", "--help"}:
+            show_help()
+            return 0
+
+        if command == "force_update":
+            return force_update()
 
     ui.section_title("OLLAMA LOCAL AI")
 
@@ -2294,4 +2519,6 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    result = main()
+    if isinstance(result, int):
+        sys.exit(result)

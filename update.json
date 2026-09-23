@@ -45,7 +45,8 @@
             "date": "2026-09-23",
             "title": "script de desinstallation",
             "changes": [
-                "Ajout d'un script de desinstallation de local-ai, et au choix, ollama et ses modeles."
+                "Ajout d'un script de desinstallation de local-ai, et au choix, ollama et ses modeles.",
+                "Ajout de deux nouveau argument de commande pour main.py --> ''help'' qui affiche une aide sur les commande possible ; ''force_update'' qui force la mise a jour depuis le depot github"
             ]
         }
 

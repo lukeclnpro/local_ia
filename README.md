@@ -45,7 +45,7 @@ cd local_ia
 python main.py
 ```
 
-# Desinstallation :
+# Desinstallation (seulement a partir de la 0.1.6) :
 
 
 ##  Linux
@@ -62,9 +62,6 @@ cd $HOME/Documents
 cd local_ia
 python uninstall.py
 ```
-
-
-
 
 
 
