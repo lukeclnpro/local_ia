@@ -5,7 +5,6 @@
 <!-- VERSION:START -->
 **Version actuelle : `0.1.7`**
 <!-- VERSION:END -->
-🎬 **[Voir la présentation](presentation.webm)**
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License](https://img.shields.io/github/license/lukeclnpro/local_ia)](https://github.com/lukeclnpro/local_ia)
